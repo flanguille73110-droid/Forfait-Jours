@@ -5,9 +5,11 @@ import { CompteursAnnuel } from '../types';
 interface StatsCardProps {
   stats: CompteursAnnuel;
   annee: number;
+  onOpenCPModal?: () => void;
+  onOpenRTTModal?: () => void;
 }
 
-export default function StatsCard({ stats, annee }: StatsCardProps) {
+export default function StatsCard({ stats, annee, onOpenCPModal, onOpenRTTModal }: StatsCardProps) {
   const forfait = stats.forfaitAnnee ?? 218;
   // Calcul du pourcentage d'atteinte du forfait
   const pctTravail = forfait > 0 ? Math.min(100, Math.round((stats.travail / forfait) * 100)) : 0;
@@ -111,7 +113,13 @@ export default function StatsCard({ stats, annee }: StatsCardProps) {
       </div>
 
       {/* Congés Payés */}
-      <div className="bg-white border border-slate-100 p-5 rounded-xl shadow-xs flex flex-col justify-between">
+      <div 
+        onClick={onOpenCPModal}
+        className={`bg-white border border-slate-100 p-5 rounded-xl shadow-xs flex flex-col justify-between transition-all ${
+          onOpenCPModal ? 'cursor-pointer hover:border-emerald-300 hover:shadow-md active:scale-[0.99]' : ''
+        }`}
+        title={onOpenCPModal ? "Cliquer pour afficher la liste des dates de CP" : undefined}
+      >
         <div className="flex justify-between items-start">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Congés Payés (CP)</p>
@@ -129,7 +137,13 @@ export default function StatsCard({ stats, annee }: StatsCardProps) {
       </div>
 
       {/* RTT */}
-      <div className="bg-white border border-slate-100 p-5 rounded-xl shadow-xs flex flex-col justify-between">
+      <div 
+        onClick={onOpenRTTModal}
+        className={`bg-white border border-slate-100 p-5 rounded-xl shadow-xs flex flex-col justify-between transition-all ${
+          onOpenRTTModal ? 'cursor-pointer hover:border-orange-300 hover:shadow-md active:scale-[0.99]' : ''
+        }`}
+        title={onOpenRTTModal ? "Cliquer pour afficher la liste des dates de RTT" : undefined}
+      >
         <div className="flex justify-between items-start">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">RTT Posés</p>

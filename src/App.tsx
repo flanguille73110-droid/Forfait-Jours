@@ -85,6 +85,25 @@ export default function App() {
   const [afficherParametres, setAfficherParametres] = useState<boolean>(false);
   const [pageParametres, setPageParametres] = useState<'menu' | 'contrat' | 'sauvegarde' | 'reinitialisation'>('menu');
   const [afficherModalReinitialiser, setAfficherModalReinitialiser] = useState<boolean>(false);
+  const [afficherModalCP, setAfficherModalCP] = useState<boolean>(false);
+  const [afficherModalRTT, setAfficherModalRTT] = useState<boolean>(false);
+  const [statutBatchSelectionne, setStatutBatchSelectionne] = useState<string>('Travail');
+
+  // Liste des dates enregistrées en CP pour l'année sélectionnée
+  const datesCPAnnee = useMemo(() => {
+    return Object.values(joursLogs)
+      .filter((j) => j.statut === 'CP' && (j.annee === anneeSelectionnee || j.date.startsWith(`${anneeSelectionnee}-`)))
+      .map((j) => j.date)
+      .sort();
+  }, [joursLogs, anneeSelectionnee]);
+
+  // Liste des dates enregistrées en RTT pour l'année sélectionnée
+  const datesRTTAnnee = useMemo(() => {
+    return Object.values(joursLogs)
+      .filter((j) => j.statut === 'RTT' && (j.annee === anneeSelectionnee || j.date.startsWith(`${anneeSelectionnee}-`)))
+      .map((j) => j.date)
+      .sort();
+  }, [joursLogs, anneeSelectionnee]);
 
   // --- Initialisation / Chargement ---
   useEffect(() => {
@@ -96,11 +115,9 @@ export default function App() {
         console.error("Erreur lors de la lecture des données locales", err);
       }
     } else {
-      // Charger les données de démo si aucune donnée locale
-      const demo = generateDemoData(2026);
-      setJoursLogs(demo);
-      localStorage.setItem('suivi_forfait_jours_v1', JSON.stringify(demo));
-      ajouterNotification('info', "Bienvenue ! Des données d'exemple ont été chargées pour illustrer l'application.");
+      // Initialiser avec un calendrier vide pour la première ouverture
+      setJoursLogs({});
+      localStorage.setItem('suivi_forfait_jours_v1', JSON.stringify({}));
     }
   }, []);
 
@@ -241,6 +258,9 @@ export default function App() {
 
   // Remonter en haut de page à chaque changement d'onglet (notamment sur smartphone)
   const changerOngletMode = (mode: 'accueil' | 'annuelle' | 'mensuelle' | 'parametres') => {
+    if (mode !== 'mensuelle') {
+      setStatutBatchSelectionne('Travail');
+    }
     setVueMode(mode);
     if (mode === 'parametres') {
       setPageParametres('menu');
@@ -260,6 +280,9 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (vueMode !== 'mensuelle') {
+      setStatutBatchSelectionne('Travail');
+    }
     const scrollToTop = () => {
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
@@ -565,7 +588,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Actions header - Uniquement bouton Paramètres */}
+        {/* Actions header - Bouton Paramètres & Bouton Télécharger Excel */}
         <div className="flex items-center gap-3 w-full md:w-auto justify-start md:justify-end">
           {/* Input fichier masqué conservé pour l'import */}
           <input
@@ -587,6 +610,16 @@ export default function App() {
             title="Paramètres du contrat"
           >
             <Settings className="h-4.5 w-4.5" />
+          </button>
+
+          {/* Bouton Télécharger Excel complet (à droite de la roue crantée) */}
+          <button
+            onClick={handleExportCompletExcel}
+            className="p-2 border border-slate-200 rounded-lg bg-white text-slate-600 hover:text-indigo-600 hover:bg-slate-50 transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5 font-bold text-xs"
+            title="Télécharger le fichier Excel complet"
+          >
+            <span className="text-base leading-none">💾</span>
+            <span className="hidden sm:inline">Télécharger Excel</span>
           </button>
         </div>
       </nav>
@@ -741,7 +774,12 @@ export default function App() {
               </div>
 
               {/* Indicateurs (Jours Travaillés, Jours Restants, CP, RTT) placés sous l'encadré */}
-              <StatsCard stats={statsAnnuel} annee={anneeSelectionnee} />
+              <StatsCard 
+                stats={statsAnnuel} 
+                annee={anneeSelectionnee} 
+                onOpenCPModal={() => setAfficherModalCP(true)} 
+                onOpenRTTModal={() => setAfficherModalRTT(true)}
+              />
             </div>
           ) : vueMode === 'annuelle' ? (
             <div className="flex flex-col gap-4">
@@ -832,8 +870,14 @@ export default function App() {
                 onSelectDay={handleSelectDay}
                 onNavigateMonth={handleNavigateMonth}
                 onApplyBatchStatus={handleApplyBatchStatus}
+                selectedBatchStatutProp={statutBatchSelectionne}
               />
-              <StatsCard stats={statsAnnuel} annee={anneeSelectionnee} />
+              <StatsCard 
+                stats={statsAnnuel} 
+                annee={anneeSelectionnee} 
+                onOpenCPModal={() => setAfficherModalCP(true)} 
+                onOpenRTTModal={() => setAfficherModalRTT(true)}
+              />
             </div>
           ) : (
             <div className="bg-white border border-slate-200 rounded-xl p-6 md:p-8 shadow-xs max-w-xl mx-auto my-4 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-150">
@@ -1278,6 +1322,198 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL LISTE DES DATES CONGÉS PAYÉS (CP) --- */}
+      {afficherModalCP && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-emerald-50/80">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-600 rounded-xl text-white shadow-xs">
+                  <Palmtree className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-base">Congés Payés (CP) - {anneeSelectionnee}</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {datesCPAnnee.length} jour{datesCPAnnee.length > 1 ? 's' : ''} enregistré{datesCPAnnee.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAfficherModalCP(false)}
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-3">
+              {datesCPAnnee.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 flex flex-col items-center gap-2">
+                  <Palmtree className="h-10 w-10 text-slate-300" />
+                  <p className="text-sm font-semibold">Aucun congé payé (CP) enregistré pour l'année {anneeSelectionnee}.</p>
+                  <p className="text-xs text-slate-400">Sélectionnez des jours dans le calendrier et attribuez-leur le statut CP pour qu'ils apparaissent ici.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {datesCPAnnee.map((dateStr) => {
+                    const dateObj = new Date(dateStr + 'T00:00:00');
+                    const dateFormatee = dateObj.toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    });
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        onClick={() => {
+                          const [y, m] = dateStr.split('-').map(Number);
+                          setAnneeSelectionnee(y);
+                          setMoisSelectionne(m);
+                          setAfficherModalCP(false);
+                          changerOngletMode('mensuelle');
+                        }}
+                        className="flex items-center justify-between gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 hover:bg-emerald-50/60 hover:border-emerald-300 transition-all shadow-2xs text-left cursor-pointer group"
+                        title="Voir dans la vue mensuelle"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="text-xs font-semibold capitalize">{dateFormatee}</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatutBatchSelectionne('CP');
+                  setAfficherModalCP(false);
+                  changerOngletMode('mensuelle');
+                }}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-2"
+              >
+                <Palmtree className="h-4 w-4" />
+                Programmer CP
+              </button>
+              <button
+                type="button"
+                onClick={() => setAfficherModalCP(false)}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL LISTE DES DATES RTT POSÉS --- */}
+      {afficherModalRTT && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-orange-50/80">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-orange-500 rounded-xl text-white shadow-xs">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-base">RTT Posés - {anneeSelectionnee}</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {datesRTTAnnee.length} jour{datesRTTAnnee.length > 1 ? 's' : ''} enregistré{datesRTTAnnee.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAfficherModalRTT(false)}
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-3">
+              {datesRTTAnnee.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 flex flex-col items-center gap-2">
+                  <Clock className="h-10 w-10 text-slate-300" />
+                  <p className="text-sm font-semibold">Aucun jour de RTT enregistré pour l'année {anneeSelectionnee}.</p>
+                  <p className="text-xs text-slate-400">Sélectionnez des jours dans le calendrier et attribuez-leur le statut RTT pour qu'ils apparaissent ici.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {datesRTTAnnee.map((dateStr) => {
+                    const dateObj = new Date(dateStr + 'T00:00:00');
+                    const dateFormatee = dateObj.toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    });
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        onClick={() => {
+                          const [y, m] = dateStr.split('-').map(Number);
+                          setAnneeSelectionnee(y);
+                          setMoisSelectionne(m);
+                          setAfficherModalRTT(false);
+                          changerOngletMode('mensuelle');
+                        }}
+                        className="flex items-center justify-between gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 hover:bg-orange-50/60 hover:border-orange-300 transition-all shadow-2xs text-left cursor-pointer group"
+                        title="Voir dans la vue mensuelle"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
+                          <span className="text-xs font-semibold capitalize">{dateFormatee}</span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-orange-600 transition-colors shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatutBatchSelectionne('RTT');
+                  setAfficherModalRTT(false);
+                  changerOngletMode('mensuelle');
+                }}
+                className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-2"
+              >
+                <Clock className="h-4 w-4" />
+                Programmer RTT
+              </button>
+              <button
+                type="button"
+                onClick={() => setAfficherModalRTT(false)}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
         </div>
       )}

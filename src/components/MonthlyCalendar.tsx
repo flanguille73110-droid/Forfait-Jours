@@ -10,6 +10,7 @@ interface MonthlyCalendarProps {
   onSelectDay: (dateStr: string) => void;
   onNavigateMonth: (direction: 'prev' | 'next') => void;
   onApplyBatchStatus?: (dateStrings: string[], statut: StatutJour | null) => void;
+  selectedBatchStatutProp?: string;
 }
 
 const NOMS_MOIS = [
@@ -27,6 +28,7 @@ export default function MonthlyCalendar({
   onSelectDay,
   onNavigateMonth,
   onApplyBatchStatus,
+  selectedBatchStatutProp,
 }: MonthlyCalendarProps) {
 
   const getDaysInMonth = (year: number, month: number) => {
@@ -99,10 +101,16 @@ export default function MonthlyCalendar({
   }, [annee, mois]);
 
   const [selectedWeekId, setSelectedWeekId] = React.useState<number>(1);
-  const [selectedBatchStatut, setSelectedBatchStatut] = React.useState<string>('Travail');
+  const [selectedBatchStatut, setSelectedBatchStatut] = React.useState<string>(selectedBatchStatutProp || 'Travail');
   const [workDaysOnly, setWorkDaysOnly] = React.useState<boolean>(true);
   const [selectedWeekDays, setSelectedWeekDays] = React.useState<string[]>([]);
   const [showDaysToInclude, setShowDaysToInclude] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (selectedBatchStatutProp !== undefined) {
+      setSelectedBatchStatut(selectedBatchStatutProp);
+    }
+  }, [selectedBatchStatutProp]);
 
   const targetWeek = React.useMemo(() => {
     return weeksInMonth.find((w) => w.id === Number(selectedWeekId)) || weeksInMonth[0];
