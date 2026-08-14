@@ -1,0 +1,6 @@
+{
+  "name": "Suivi Forfait Jours",
+  "description": "Application intuitive pour les cadres au forfait jours (218 jours) pour suivre, gérer et exporter/importer leurs jours de travail, CP, RTT et repos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
