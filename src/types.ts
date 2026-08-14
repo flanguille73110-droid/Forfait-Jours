@@ -22,3 +22,13 @@ export interface CompteursAnnuel {
   joursOuvresTotal?: number;
   joursOuvresRestants?: number;
 }
+
+export interface LogSauvegarde {
+  id: string;
+  timestamp: string; // ISO string
+  dateFormatee: string; // Format e.g. "Vendredi 14 août 2026 à 18:30"
+  type: 'complet' | 'annuel';
+  nomFichier: string;
+  nombreJours: number;
+  annee?: number;
+}

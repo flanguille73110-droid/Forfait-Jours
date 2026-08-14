@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Calendar, Briefcase, Palmtree, Clock, Download, Upload, Trash2, 
   RefreshCw, AlertCircle, Check, Info, CalendarDays, BarChart3, HelpCircle, Sparkles,
-  Settings, X, ChevronLeft, ChevronRight
+  Settings, X, ChevronLeft, ChevronRight, History, Save, FileSpreadsheet, CheckCircle2
 } from 'lucide-react';
-import { Jour, StatutJour, CompteursAnnuel } from './types';
+import { Jour, StatutJour, CompteursAnnuel, LogSauvegarde } from './types';
 import Notification, { ToastMessage } from './components/Notification';
 import StatsCard from './components/StatsCard';
 import DayStatusModal from './components/DayStatusModal';
@@ -83,15 +83,27 @@ export default function App() {
   const [dateDebutContrat, setDateDebutContrat] = useState<string>(() => localStorage.getItem('date_debut_contrat') || '');
   const [dateContratObligatoireSaisie, setDateContratObligatoireSaisie] = useState<string>('');
   const [afficherParametres, setAfficherParametres] = useState<boolean>(false);
-  const [pageParametres, setPageParametres] = useState<'menu' | 'contrat' | 'sauvegarde' | 'reinitialisation'>('menu');
+  const [pageParametres, setPageParametres] = useState<'menu' | 'contrat' | 'sauvegarde' | 'historique' | 'reinitialisation'>('menu');
   const [afficherModalReinitialiser, setAfficherModalReinitialiser] = useState<boolean>(false);
   const [afficherModalCP, setAfficherModalCP] = useState<boolean>(false);
   const [afficherModalRTT, setAfficherModalRTT] = useState<boolean>(false);
+  const [afficherModalRappelVendredi, setAfficherModalRappelVendredi] = useState<boolean>(false);
+  const [historiqueSauvegardes, setHistoriqueSauvegardes] = useState<LogSauvegarde[]>(() => {
+    const saved = localStorage.getItem('historique_sauvegardes_v1');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
   const [statutBatchSelectionne, setStatutBatchSelectionne] = useState<string>('Travail');
 
   // Liste des dates enregistrées en CP pour l'année sélectionnée
   const datesCPAnnee = useMemo(() => {
-    return Object.values(joursLogs)
+    return (Object.values(joursLogs) as Jour[])
       .filter((j) => j.statut === 'CP' && (j.annee === anneeSelectionnee || j.date.startsWith(`${anneeSelectionnee}-`)))
       .map((j) => j.date)
       .sort();
@@ -99,7 +111,7 @@ export default function App() {
 
   // Liste des dates enregistrées en RTT pour l'année sélectionnée
   const datesRTTAnnee = useMemo(() => {
-    return Object.values(joursLogs)
+    return (Object.values(joursLogs) as Jour[])
       .filter((j) => j.statut === 'RTT' && (j.annee === anneeSelectionnee || j.date.startsWith(`${anneeSelectionnee}-`)))
       .map((j) => j.date)
       .sort();
@@ -298,6 +310,64 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [vueMode]);
 
+  // --- Journalisation des sauvegardes et rappel du vendredi ---
+  const enregistrerLogSauvegarde = (type: 'complet' | 'annuel', anneeExportee?: number) => {
+    const now = new Date();
+    const dateFormatee = now.toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }) + ` à ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    const dateFormateeCap = dateFormatee.charAt(0).toUpperCase() + dateFormatee.slice(1);
+    const nbJours = Object.keys(joursLogs).length;
+    const nomFichier = type === 'complet'
+      ? 'suivi_forfait_jours_complet.xlsx'
+      : `suivi_forfait_jours_${anneeExportee || now.getFullYear()}.xlsx`;
+
+    const nouveauLog: LogSauvegarde = {
+      id: `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: now.toISOString(),
+      dateFormatee: dateFormateeCap,
+      type,
+      nomFichier,
+      nombreJours: nbJours,
+      annee: anneeExportee,
+    };
+
+    setHistoriqueSauvegardes((prev) => {
+      const updated = [nouveauLog, ...prev];
+      localStorage.setItem('historique_sauvegardes_v1', JSON.stringify(updated));
+      return updated;
+    });
+
+    // Si c'est vendredi, on marque ce vendredi comme sauvegardé
+    if (now.getDay() === 5) {
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      localStorage.setItem('derniere_sauvegarde_vendredi', `${yyyy}-${mm}-${dd}`);
+    }
+  };
+
+  const verifierRappelVendrediApresStatut = () => {
+    const now = new Date();
+    // getDay() === 5 correspond au vendredi (0 = Dimanche, 5 = Vendredi)
+    if (now.getDay() === 5) {
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const aujourdhuiStr = `${yyyy}-${mm}-${dd}`;
+      const derniereSauvegarde = localStorage.getItem('derniere_sauvegarde_vendredi');
+      if (derniereSauvegarde !== aujourdhuiStr) {
+        setTimeout(() => {
+          setAfficherModalRappelVendredi(true);
+        }, 350);
+      }
+    }
+  };
+
   const todayStatus = joursLogs[todayStr]?.statut || null;
 
   const handleTodayStatusChange = (statut: string) => {
@@ -322,6 +392,7 @@ export default function App() {
       };
       sauvegarderDonnees(nouvellesDonnees);
       ajouterNotification('success', `Aujourd'hui déclaré en : ${statut}.`);
+      verifierRappelVendrediApresStatut();
     }
   };
 
@@ -359,6 +430,7 @@ export default function App() {
       };
       sauvegarderDonnees(nouvellesDonnees);
       ajouterNotification('success', `Journée déclarée en ${statut}.`);
+      verifierRappelVendrediApresStatut();
     }
     setJourCible(null);
   };
@@ -399,6 +471,7 @@ export default function App() {
       ajouterNotification('success', `Statut réinitialisé pour ${targetDates.length} jour(s).`);
     } else {
       ajouterNotification('success', `Statut "${statut}" appliqué à ${targetDates.length} jour(s).`);
+      verifierRappelVendrediApresStatut();
     }
   };
 
@@ -429,6 +502,7 @@ export default function App() {
     }
     try {
       exportToExcel(listJours, anneeSelectionnee, dateDebutContrat);
+      enregistrerLogSauvegarde('annuel', anneeSelectionnee);
       ajouterNotification('success', `Export Excel de l'année ${anneeSelectionnee} téléchargé.`);
     } catch (err) {
       ajouterNotification('error', "Échec de la génération du fichier Excel.");
@@ -443,6 +517,7 @@ export default function App() {
     }
     try {
       exportToExcel(listJours, undefined, dateDebutContrat);
+      enregistrerLogSauvegarde('complet');
       ajouterNotification('success', "Export Excel complet téléchargé.");
     } catch (err) {
       ajouterNotification('error', "Échec de la génération du fichier Excel complet.");
@@ -889,6 +964,7 @@ export default function App() {
                     {pageParametres === 'menu' ? "Paramètres de l'application" : 
                      pageParametres === 'contrat' ? "Paramètres - Renseignement" : 
                      pageParametres === 'sauvegarde' ? "Paramètres - Sauvegarde et import" :
+                     pageParametres === 'historique' ? "Paramètres - Liste des sauvegardes" :
                      "Paramètres - Réinitialisation"}
                   </h3>
                 </div>
@@ -938,6 +1014,23 @@ export default function App() {
                       <div className="text-left">
                         <h4 className="text-sm font-bold text-slate-800">Sauvegarde et import</h4>
                         <p className="text-xs text-slate-400 mt-0.5">Exporter ou importer votre fichier de suivi Excel</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                  </div>
+
+                  {/* Champ cliquable Liste des sauvegardes */}
+                  <div
+                    onClick={() => setPageParametres('historique')}
+                    className="cursor-pointer hover:bg-slate-50/80 border border-slate-200 rounded-xl p-5 flex items-center justify-between transition-all group active:scale-[0.99] bg-white shadow-xs animate-in fade-in duration-200"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 bg-indigo-50 rounded-lg text-indigo-600 group-hover:bg-indigo-100 transition-colors">
+                        <History className="h-5 w-5" />
+                      </div>
+                      <div className="text-left">
+                        <h4 className="text-sm font-bold text-slate-800">Liste des sauvegardes</h4>
+                        <p className="text-xs text-slate-400 mt-0.5">Historique daté de vos exports et sauvegardes Excel</p>
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
@@ -1083,6 +1176,122 @@ export default function App() {
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2 border-t border-slate-100">
+                    <button
+                      onClick={() => setPageParametres('menu')}
+                      className="px-5 py-2.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 active:scale-[0.98] transition-all cursor-pointer shadow-xs"
+                    >
+                      Retour aux paramètres
+                    </button>
+                  </div>
+                </div>
+              ) : pageParametres === 'historique' ? (
+                <div className="flex flex-col gap-5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-slate-500 leading-normal">
+                      Consultez la liste et la date précise de l'ensemble de vos sauvegardes et exports Excel effectués :
+                    </p>
+                  </div>
+
+                  {/* Action rapide pour déclencher une sauvegarde complète */}
+                  <div className="border border-indigo-100 rounded-xl p-4 bg-indigo-50/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-600 text-white rounded-lg shrink-0">
+                        <Save className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Effectuer une sauvegarde maintenant</h4>
+                        <p className="text-[11px] text-slate-500">Génère et télécharge le fichier Excel complet</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleExportCompletExcel}
+                      className="px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white rounded-lg transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5 shrink-0"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>Télécharger Excel</span>
+                    </button>
+                  </div>
+
+                  {/* Liste des sauvegardes */}
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Historique des sauvegardes ({historiqueSauvegardes.length})
+                      </h4>
+                      {historiqueSauvegardes.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm("Êtes-vous sûr de vouloir effacer l'historique des sauvegardes ?")) {
+                              setHistoriqueSauvegardes([]);
+                              localStorage.removeItem('historique_sauvegardes_v1');
+                              ajouterNotification('info', "L'historique des sauvegardes a été effacé.");
+                            }
+                          }}
+                          className="text-[11px] font-semibold text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        >
+                          Effacer la liste
+                        </button>
+                      )}
+                    </div>
+
+                    {historiqueSauvegardes.length === 0 ? (
+                      <div className="border border-dashed border-slate-200 rounded-xl p-8 text-center flex flex-col items-center gap-2 bg-slate-50/50">
+                        <History className="h-8 w-8 text-slate-300" />
+                        <p className="text-xs font-semibold text-slate-600">Aucune sauvegarde enregistrée pour le moment.</p>
+                        <p className="text-[11px] text-slate-400 max-w-sm">
+                          Vos exports Excel et vos sauvegardes du vendredi apparaîtront automatiquement ici avec leur date et leur heure.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2 max-h-80 overflow-y-auto pr-1">
+                        {historiqueSauvegardes.map((sauvegarde) => (
+                          <div
+                            key={sauvegarde.id}
+                            className="p-3.5 rounded-xl border border-slate-200/80 bg-white hover:bg-slate-50/80 transition-all flex items-center justify-between gap-3 shadow-2xs"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`p-2 rounded-lg shrink-0 ${sauvegarde.type === 'complet' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                                <FileSpreadsheet className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-bold text-slate-800 capitalize">
+                                    {sauvegarde.dateFormatee}
+                                  </span>
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                                    sauvegarde.type === 'complet' ? 'bg-emerald-100/80 text-emerald-800' : 'bg-indigo-100/80 text-indigo-800'
+                                  }`}>
+                                    {sauvegarde.type === 'complet' ? 'Sauvegarde complète' : `Année ${sauvegarde.annee || ''}`}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                  Fichier : <span className="font-mono text-slate-600">{sauvegarde.nomFichier}</span> ({sauvegarde.nombreJours} jour(s) suivis)
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (sauvegarde.type === 'complet') {
+                                  handleExportCompletExcel();
+                                } else {
+                                  handleExportExcel();
+                                }
+                              }}
+                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                              title="Télécharger à nouveau"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end pt-2 border-t border-slate-100">
@@ -1512,6 +1721,79 @@ export default function App() {
                 className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL RAPPEL DE SAUVEGARDE DU VENDREDI --- */}
+      {afficherModalRappelVendredi && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-indigo-50/80">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-600 rounded-xl text-white shadow-xs">
+                  <FileSpreadsheet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-base">Sauvegarde du vendredi</h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Sécurisez vos données hebdomadaires
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAfficherModalRappelVendredi(false)}
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 flex flex-col gap-4 text-center items-center">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+                <Save className="h-7 w-7" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <h4 className="text-sm font-bold text-slate-800">
+                  C'est vendredi ! Pensez à sauvegarder votre suivi
+                </h4>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+                  Téléchargez votre fichier Excel complet pour garder une copie sécurisée de toutes vos journées déclarées cette semaine.
+                </p>
+              </div>
+
+              <div className="w-full p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-left flex items-start gap-2.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-slate-600 leading-normal">
+                  Une fois la sauvegarde téléchargée, ce rappel ne s'affichera plus aujourd'hui et réapparaîtra vendredi prochain.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setAfficherModalRappelVendredi(false)}
+                className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl shadow-2xs transition-all cursor-pointer"
+              >
+                Plus tard
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleExportCompletExcel();
+                  setAfficherModalRappelVendredi(false);
+                }}
+                className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Sauvegarder et Télécharger</span>
               </button>
             </div>
           </div>
