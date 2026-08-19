@@ -2,7 +2,7 @@
  * Types pour l'application Suivi Forfait Jours
  */
 
-export type StatutJour = 'Travail' | 'CP' | 'RTT' | 'Repos';
+export type StatutJour = 'Travail' | 'CP' | 'RTT' | 'Arrêt maladie' | 'Maladie' | 'Repos';
 
 export interface Jour {
   id: string; // Format: YYYY-MM-DD (sert aussi d'identifiant unique par date)
@@ -17,6 +17,7 @@ export interface CompteursAnnuel {
   cp: number;
   rtt: number;
   repos: number;
+  maladie?: number;
   restants: number;
   forfaitAnnee?: number;
   joursOuvresTotal?: number;

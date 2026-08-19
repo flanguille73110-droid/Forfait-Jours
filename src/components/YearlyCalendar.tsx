@@ -44,6 +44,9 @@ export default function YearlyCalendar({ annee, joursLogs, onSelectDay }: Yearly
           return 'bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow-xs scale-102';
         case 'RTT':
           return 'bg-orange-500 text-white font-semibold hover:bg-orange-600 shadow-xs scale-102';
+        case 'Arrêt maladie':
+        case 'Maladie':
+          return 'bg-rose-600 text-white font-semibold hover:bg-rose-700 shadow-xs scale-102';
         case 'Repos':
           return 'bg-slate-400 text-white font-semibold hover:bg-slate-500 shadow-xs scale-102';
       }

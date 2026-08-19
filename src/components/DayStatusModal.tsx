@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Briefcase, Palmtree, Clock, Home, Trash2, Sparkles } from 'lucide-react';
+import { X, Briefcase, Palmtree, Clock, Home, Trash2, Sparkles, HeartPulse } from 'lucide-react';
 import { StatutJour } from '../types';
 import { getHolidayName } from '../utils/holidays';
 
@@ -79,6 +79,14 @@ export default function DayStatusModal({
       colorClass: 'bg-orange-500 text-white border-orange-500',
       hoverClass: 'hover:bg-orange-50 hover:text-orange-700 hover:border-orange-200 text-slate-700',
       icon: <Clock className="h-5 w-5" />,
+    },
+    {
+      value: 'Arrêt maladie',
+      label: 'Arrêt maladie',
+      description: 'Arrêt de travail / Congé maladie',
+      colorClass: 'bg-rose-600 text-white border-rose-600',
+      hoverClass: 'hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-700',
+      icon: <HeartPulse className="h-5 w-5" />,
     },
     {
       value: 'Repos',

@@ -186,6 +186,8 @@ export function importFromExcel(file: File): Promise<ImportResult> {
             finalStatut = 'CP';
           } else if (cleanStatut.includes('rtt')) {
             finalStatut = 'RTT';
+          } else if (cleanStatut.includes('maladie') || cleanStatut.includes('arret') || cleanStatut.includes('arrêt') || cleanStatut.includes('sick')) {
+            finalStatut = 'Arrêt maladie';
           } else if (cleanStatut.includes('repos') || cleanStatut.includes('week') || cleanStatut.includes('férié') || cleanStatut.includes('ferie') || cleanStatut.includes('off')) {
             finalStatut = 'Repos';
           }

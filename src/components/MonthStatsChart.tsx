@@ -31,6 +31,7 @@ export default function MonthStatsChart({ annee, joursLogs }: MonthStatsChartPro
       let travail = 0;
       let cp = 0;
       let rtt = 0;
+      let maladie = 0;
       let repos = 0;
 
       Object.keys(joursLogs).forEach((key) => {
@@ -39,6 +40,7 @@ export default function MonthStatsChart({ annee, joursLogs }: MonthStatsChartPro
           if (log.statut === 'Travail') travail++;
           else if (log.statut === 'CP') cp++;
           else if (log.statut === 'RTT') rtt++;
+          else if (log.statut === 'Arrêt maladie' || log.statut === 'Maladie') maladie++;
           else if (log.statut === 'Repos') repos++;
         }
       });
@@ -48,6 +50,7 @@ export default function MonthStatsChart({ annee, joursLogs }: MonthStatsChartPro
         'Travail': travail,
         'CP': cp,
         'RTT': rtt,
+        'Arrêt maladie': maladie,
         'Repos': repos,
       };
     });
@@ -117,6 +120,7 @@ export default function MonthStatsChart({ annee, joursLogs }: MonthStatsChartPro
             <Bar dataKey="Travail" stackId="a" fill="#4f46e5" name="Travail" radius={[0, 0, 0, 0]} />
             <Bar dataKey="CP" stackId="a" fill="#10b981" name="Congés Payés" radius={[0, 0, 0, 0]} />
             <Bar dataKey="RTT" stackId="a" fill="#f97316" name="RTT" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="Arrêt maladie" stackId="a" fill="#e11d48" name="Arrêt maladie" radius={[0, 0, 0, 0]} />
             <Bar dataKey="Repos" stackId="a" fill="#94a3b8" name="Repos" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

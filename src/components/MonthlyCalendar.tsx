@@ -153,6 +153,7 @@ export default function MonthlyCalendar({
     let travail = 0;
     let cp = 0;
     let rtt = 0;
+    let maladie = 0;
     let feries = 0;
 
     const daysInMonth = getDaysInMonth(annee, mois);
@@ -170,10 +171,11 @@ export default function MonthlyCalendar({
         if (log.statut === 'Travail') travail++;
         else if (log.statut === 'CP') cp++;
         else if (log.statut === 'RTT') rtt++;
+        else if (log.statut === 'Arrêt maladie' || log.statut === 'Maladie') maladie++;
       }
     });
 
-    return { travail, cp, rtt, feries };
+    return { travail, cp, rtt, maladie, feries };
   }, [annee, mois, joursLogs]);
 
   // Styles de statut pour la vue détaillée
@@ -202,6 +204,14 @@ export default function MonthlyCalendar({
           badgeClass: 'bg-orange-100 text-orange-700 border-orange-200',
           cellClass: 'bg-orange-500 text-white font-bold border-orange-500 sm:bg-orange-50/40 sm:text-slate-800 sm:border-orange-300 sm:hover:bg-orange-50',
           indicator: 'bg-orange-500',
+        };
+      case 'Arrêt maladie':
+      case 'Maladie':
+        return {
+          label: 'Maladie',
+          badgeClass: 'bg-rose-100 text-rose-700 border-rose-200',
+          cellClass: 'bg-rose-600 text-white font-bold border-rose-600 sm:bg-rose-50/40 sm:text-slate-800 sm:border-rose-300 sm:hover:bg-rose-50',
+          indicator: 'bg-rose-600',
         };
       case 'Repos':
         return {
@@ -314,7 +324,7 @@ export default function MonthlyCalendar({
         </div>
 
         {/* Stats rapides du mois en cours */}
-        <div className="grid grid-cols-4 gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center text-xs text-slate-600 max-w-lg w-full">
+        <div className="grid grid-cols-5 gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center text-xs text-slate-600 max-w-xl w-full">
           <div className="flex flex-col items-center justify-center py-1">
             <span className="font-bold text-indigo-600 text-sm">{statsMois.travail} j.</span>
             <span className="text-[10px] text-slate-400">Travail</span>
@@ -326,6 +336,10 @@ export default function MonthlyCalendar({
           <div className="flex flex-col items-center justify-center py-1">
             <span className="font-bold text-orange-600 text-sm">{statsMois.rtt} j.</span>
             <span className="text-[10px] text-slate-400">RTT</span>
+          </div>
+          <div className="flex flex-col items-center justify-center py-1">
+            <span className="font-bold text-rose-600 text-sm">{statsMois.maladie} j.</span>
+            <span className="text-[10px] text-slate-400 truncate max-w-[70px]" title="Arrêt maladie">Maladie</span>
           </div>
           <div className="flex flex-col items-center justify-center py-1">
             <span className="font-bold text-red-600 text-sm">{statsMois.feries} j.</span>
@@ -378,6 +392,7 @@ export default function MonthlyCalendar({
               <option value="Travail">💼 Jour de Travail</option>
               <option value="CP">🌴 Congés Payés (CP)</option>
               <option value="RTT">⏰ RTT</option>
+              <option value="Arrêt maladie">🩺 Arrêt maladie</option>
               <option value="Repos">🏠 Repos / Non travaillé</option>
               <option value="">-- Réinitialiser / Non déclaré --</option>
             </select>

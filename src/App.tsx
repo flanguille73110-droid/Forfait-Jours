@@ -178,6 +178,7 @@ export default function App() {
     let cp = 0;
     let rtt = 0;
     let repos = 0;
+    let maladie = 0;
 
     Object.keys(joursLogs).forEach((key) => {
       const log = joursLogs[key];
@@ -185,6 +186,7 @@ export default function App() {
         if (log.statut === 'Travail') travail++;
         else if (log.statut === 'CP') cp++;
         else if (log.statut === 'RTT') rtt++;
+        else if (log.statut === 'Arrêt maladie' || log.statut === 'Maladie') maladie++;
         else if (log.statut === 'Repos') repos++;
       }
     });
@@ -243,7 +245,7 @@ export default function App() {
       }
     }
 
-    return { travail, cp, rtt, repos, restants, forfaitAnnee, joursOuvresTotal, joursOuvresRestants };
+    return { travail, cp, rtt, repos, maladie, restants, forfaitAnnee, joursOuvresTotal, joursOuvresRestants };
   }, [joursLogs, anneeSelectionnee, dateDebutContrat]);
 
   // --- Fonctions pour l'onglet Accueil ---
@@ -812,13 +814,15 @@ export default function App() {
                       todayStatus === 'Travail' ? 'bg-indigo-500' :
                       todayStatus === 'CP' ? 'bg-emerald-500' :
                       todayStatus === 'RTT' ? 'bg-orange-500' :
+                      todayStatus === 'Arrêt maladie' || todayStatus === 'Maladie' ? 'bg-rose-500' :
                       todayStatus === 'Repos' ? 'bg-slate-400' : 'bg-slate-300'
                     }`} />
                     <span className="text-base font-bold text-slate-700">
                       {todayStatus ? (
                         todayStatus === 'Travail' ? 'Travail' :
                         todayStatus === 'CP' ? 'Congés Payés' :
-                        todayStatus === 'RTT' ? 'RTT' : 'Repos'
+                        todayStatus === 'RTT' ? 'RTT' :
+                        todayStatus === 'Arrêt maladie' || todayStatus === 'Maladie' ? 'Arrêt maladie' : 'Repos'
                       ) : 'Non déclaré / Non travaillé'}
                     </span>
                   </div>
@@ -839,6 +843,7 @@ export default function App() {
                     <option value="Travail">💼 Jour de Travail</option>
                     <option value="CP">🌴 Congés Payés (CP)</option>
                     <option value="RTT">⏰ RTT</option>
+                    <option value="Arrêt maladie">🩺 Arrêt maladie</option>
                     <option value="Repos">🏠 Jour de Repos / Non travaillé</option>
                   </select>
                 </div>
@@ -919,6 +924,9 @@ export default function App() {
                     </span>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-orange-500 text-white">
                       ⏰ RTT
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-600 text-white">
+                      🩺 Arrêt maladie
                     </span>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-400 text-white">
                       🏠 Repos
